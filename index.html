@@ -837,7 +837,6 @@ html.intro,html.intro body{overflow:hidden}
 
   /* ---------- the doorway: tap to open (also unlocks sound) ---------- */
   var ov=$('ov'),sndBtn=$('snd');
-  var openingTimer;
   function sndUI(){
     sndBtn.setAttribute('aria-pressed',snd.on?'true':'false');
     sndBtn.setAttribute('aria-label',snd.on?'Turn magical sound off':'Turn magical sound on');
@@ -850,7 +849,7 @@ html.intro,html.intro body{overflow:hidden}
       ov.classList.add('opening');
       $('ov-yes').disabled=true;$('ov-no').disabled=true;
       if(withSound)snd.dust();
-      openingTimer=setTimeout(function(){
+      setTimeout(function(){
         doc.documentElement.classList.remove('intro');
         ov.classList.remove('opening');
         ov.classList.add('gone');
