@@ -143,6 +143,13 @@ h1,h2,h3,p{overflow-wrap:break-word}
 #rsvpf input,#rsvpf select,#rsvpf textarea{font-size:max(16px,1.1rem);min-height:48px}
 #rsvpf textarea{min-height:84px}
 .rsvp{padding:clamp(1rem,5vw,2rem)}
+.rsvp-modal{width:min(520px,calc(100vw - 32px));max-height:85vh;overflow:auto;padding:clamp(1.5rem,6vw,2.5rem);border:2px solid var(--pk2);border-radius:30px;background:var(--paper);color:var(--ink);box-shadow:0 24px 80px #21102b88;text-align:center}
+.rsvp-modal::backdrop{background:#160e21bb;backdrop-filter:blur(6px)}
+.rsvp-modal h2{font-size:clamp(1.8rem,7vw,2.6rem)}
+.rsvp-modal p{margin-top:.75rem}
+.rsvp-modal ul{margin:1rem 0;text-align:left;line-height:1.5}
+.rsvp-modal li+li{margin-top:.45rem}
+.rsvp-modal .modal-cancel{display:block;margin:1rem auto 0;border:0;background:none;color:var(--ink);text-decoration:underline;cursor:pointer;font:inherit}
 @media(max-width:480px){
  body{font-size:1.15rem}
  section{padding:3.5rem 1rem}
@@ -214,15 +221,34 @@ h1,h2,h3,p{overflow-wrap:break-word}
 <section>
   <h2 class="rv">Will you come?</h2>
   <div class="rsvp rv"><p>Your presence is the greatest gift. Please let us know you're coming so we can save you a sparkly seat.</p>
-  <form id="rsvpf" autocomplete="on" novalidate>
+  <form id="rsvpf" autocomplete="on">
     <input name="website" tabindex="-1" autocomplete="off" style="position:absolute;left:-9999px" aria-hidden="true">
     <label>Your name<input name="name" required maxlength="80" autocomplete="name" placeholder="Full name"></label>
-    <label>Number of guests (including you)<select name="guests"><option>1</option><option>2</option><option>3</option><option>4</option><option>5</option><option>6</option><option>7</option><option>8</option></select></label>
-    <label>Phone or email <small>(optional)</small><input name="contact" maxlength="80" autocomplete="tel" placeholder="So we can reach you"></label>
+    <label>Number of guests (up to 3)<select name="guests" required><option value="1">1</option><option value="2">2</option><option value="3">3</option></select></label>
+    <label>Philippine mobile number (09XXXXXXXXX)<input id="rsvp-phone" name="contact" type="tel" inputmode="numeric" autocomplete="tel-national" pattern="09[0-9]{9}" minlength="11" maxlength="11" title="Enter an 11-digit Philippine mobile number starting with 09." placeholder="09XXXXXXXXX" required></label>
     <label>A little wish for Shanaiah <small>(optional)</small><textarea name="message" rows="2" maxlength="300" placeholder="Your message"></textarea></label>
-    <button class="cta" type="submit" style="margin:1.2rem 0 0;border:0;cursor:pointer">RSVP ✦</button>
-    <p id="rsvpmsg" role="status" style="margin-top:1rem;font-size:1.15rem"></p>
-  </form></div>
+    <button class="cta" type="submit" style="margin:1.2rem 0 0;border:0;cursor:pointer">Send my reply ✦</button>
+    <p id="rsvpmsg" role="status" aria-live="polite" style="margin-top:1rem;font-size:1.15rem"></p>
+  </form>
+  <dialog id="health-dialog" class="rsvp-modal" aria-labelledby="health-title">
+    <h2 id="health-title">Please help keep Shanaiah safe</h2>
+    <p>Before sending your reply, please read and agree to these health guidelines:</p>
+    <ul>
+      <li>No smoking or vaping around Shanaiah.</li>
+      <li>Please do not kiss Shanaiah.</li>
+      <li>Wash or sanitize your hands before holding her.</li>
+      <li>Please do not visit or hold her if you feel unwell or have a cough, cold, or fever.</li>
+      <li>Please ask her parents before picking her up, and give her back when asked.</li>
+      <li>Please avoid touching her face and hands.</li>
+    </ul>
+    <button class="cta" id="health-agree" type="button">I agree and send</button>
+    <button class="modal-cancel" id="health-cancel" type="button">Cancel</button>
+  </dialog>
+  <dialog id="rsvp-success" class="rsvp-modal" aria-labelledby="success-title" aria-describedby="success-message">
+    <h2 id="success-title">Thank you!</h2>
+    <p id="success-message">Thank you for letting us know. We hope to see you there!</p>
+    <button class="cta" id="success-close" type="button">Wonderful!</button>
+  </dialog></div>
 </section>
 <footer>Shanaiah Reine<small>✦ BELIEVE · BLESSED · BELOVED ✦</small></footer>
 
@@ -258,14 +284,39 @@ let t=0;addEventListener('scroll',()=>{if(t)return;t=requestAnimationFrame(()=>{
 
 // RSVP -> Google Sheet (via Apps Script web app)
 const RSVP_URL='https://script.google.com/macros/s/AKfycbyuwq52JeWPrnI6FrK34l2PZMj8CtVG0GOxaTxjkeQ1KljiLc14qzRkyOe_rMQZzJMsXQ/exec';
-document.getElementById('rsvpf').addEventListener('submit',async e=>{
- e.preventDefault();const f=e.target,m=document.getElementById('rsvpmsg'),b=f.querySelector('button');
- const d=Object.fromEntries(new FormData(f));
- if(!d.name.trim()){m.textContent='Please add your name ✦';return}
- if(RSVP_URL.startsWith('PASTE')){m.textContent='RSVP is not connected yet.';return}
- b.disabled=true;b.textContent='Sending…';
- try{await fetch(RSVP_URL,{method:'POST',mode:'no-cors',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify(d)});
-  f.reset();m.textContent='✦ Thank you! We can\'t wait to celebrate with you. ✦'}
- catch(_){m.textContent='Something went wrong. Please try again.'}
- b.disabled=false;b.textContent='RSVP ✦'});
-</script></body></html>
+const rsvpForm=document.getElementById('rsvpf');
+const rsvpPhone=document.getElementById('rsvp-phone');
+const healthDialog=document.getElementById('health-dialog');
+const successDialog=document.getElementById('rsvp-success');
+const rsvpMessage=document.getElementById('rsvpmsg');
+const rsvpButton=rsvpForm.querySelector('button[type="submit"]');
+let healthAccepted=false,sending=false,sent=false;
+rsvpPhone.addEventListener('input',()=>{rsvpPhone.value=rsvpPhone.value.replace(/[^0-9]/g,'').slice(0,11)});
+rsvpForm.addEventListener('submit',e=>{
+ e.preventDefault();
+ if(sending||sent)return;
+ if(!rsvpForm.reportValidity())return;
+ healthDialog.showModal();
+ document.getElementById('health-agree').focus();
+});
+document.getElementById('health-cancel').addEventListener('click',()=>healthDialog.close());
+document.getElementById('health-agree').addEventListener('click',async()=>{
+ if(sending||sent)return;
+ healthAccepted=true;
+ healthDialog.close();
+ sending=true;rsvpButton.disabled=true;rsvpMessage.textContent='Sending your reply…';
+ const data=new FormData(rsvpForm);
+ const payload={name:String(data.get('name')||'').trim(),guests:Number(data.get('guests')),contact:String(data.get('contact')||''),message:String(data.get('message')||''),website:String(data.get('website')||'')};
+ if(!healthAccepted){sending=false;rsvpButton.disabled=false;return}
+ try{
+  await fetch(RSVP_URL,{method:'POST',mode:'no-cors',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify(payload)});
+  sent=true;rsvpMessage.textContent='Your reply was sent. Thank you!';
+  rsvpForm.querySelectorAll('input,select,textarea,button').forEach(field=>field.disabled=true);
+  successDialog.showModal();
+  document.getElementById('success-close').focus();
+ }catch(error){
+  rsvpMessage.textContent='We could not send your reply. Please check your connection and try again.';
+  rsvpButton.disabled=false;
+ }finally{sending=false}
+});
+document.getElementById('success-close').addEventListener('click',()=>successDialog.close());</script></body></html>
